@@ -7,7 +7,7 @@ export interface Story {
   description: string;
   priority: StoryPriority;
   projectId: number;
-  createdAt: string; // ISO string
+  createdAt: string; 
   state: StoryState;
   ownerId: number;
 } 

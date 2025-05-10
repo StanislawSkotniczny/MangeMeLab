@@ -7,10 +7,10 @@ export interface Task {
   description: string;
   priority: TaskPriority;
   storyId: number;
-  estimatedTime: number; // w godzinach
+  estimatedTime: number; 
   state: TaskState;
-  createdAt: string; // ISO string
-  startDate?: string; // ISO string
-  endDate?: string; // ISO string
-  assigneeId?: number; // id użytkownika
+  createdAt: string; 
+  startDate?: string; 
+  endDate?: string; 
+  assigneeId?: number; 
 } 

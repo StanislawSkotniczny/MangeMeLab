@@ -9,6 +9,7 @@ import { StoryService } from './services/StoryService';
 import type { User, UserRole } from './models/User';
 import type { Task, TaskPriority, TaskState } from './models/Task';
 import { TaskService } from './services/TaskService';
+import DarkModeToggle from './components/DarkModeToggle.vue';
 
 // Użytkownicy
 const user: User = AuthService.getCurrentUser();
@@ -32,6 +33,7 @@ function setActiveProject(id: number) {
   ActiveProjectService.setActiveProject(id);
   loadStories();
   resetTaskView();
+  activeStoryId.value = null;
 }
 
 // CRUD projektów
@@ -276,6 +278,11 @@ function markTaskDone(task: Task) {
   loadTasks();
 }
 
+function changeTaskState(task: Task, newState: TaskState) {
+  TaskService.update({ ...task, state: newState });
+  loadTasks();
+}
+
 const tasksTodo = computed(() => tasks.value.filter(t => t.state === 'todo'));
 const tasksDoing = computed(() => tasks.value.filter(t => t.state === 'doing'));
 const tasksDone = computed(() => tasks.value.filter(t => t.state === 'done'));
@@ -288,194 +295,454 @@ onMounted(() => {
 </script>
 
 <template>
-  <div style="max-width: 1100px; margin: 40px auto;">
-    <h1>ManageMe - Projekty</h1>
-    <div style="margin-bottom: 20px;">
-      <b>Zalogowany użytkownik:</b> {{ user.firstName }} {{ user.lastName }} ({{ user.role }})
-    </div>
-    <div style="margin-bottom: 20px;">
-      <label><b>Wybierz aktywny projekt:</b></label>
-      <select v-model.number="activeProjectId" @change="setActiveProject(Number(activeProjectId))">
-        <option v-for="project in projects" :key="project.id" :value="project.id">{{ project.name }}</option>
-      </select>
-      <span v-if="activeProject"> ({{ activeProject.description }})</span>
-    </div>
-    <form @submit.prevent="onSubmit">
-      <input v-model="form.name" placeholder="Nazwa projektu" required />
-      <input v-model="form.description" placeholder="Opis projektu" required />
-      <button type="submit">{{ form.id === null ? 'Dodaj projekt' : 'Aktualizuj projekt' }}</button>
-      <button v-if="form.id !== null" type="button" @click="resetForm">Anuluj</button>
-    </form>
-    <ul>
-      <li v-for="project in projects" :key="project.id" style="margin-bottom: 10px;">
-        <b>{{ project.name }}</b>: {{ project.description }}
-        <button @click="editProject(project)">Edytuj</button>
-        <button @click="deleteProject(project.id)">Usuń</button>
-      </li>
-    </ul>
-    <hr />
-    <div v-if="activeProject">
-      <h2>Historyjki dla projektu: {{ activeProject.name }}</h2>
-      <form @submit.prevent="onStorySubmit">
-        <input v-model="storyForm.name" placeholder="Nazwa historyjki" required />
-        <input v-model="storyForm.description" placeholder="Opis" required />
-        <select v-model="storyForm.priority">
-          <option value="niski">Niski</option>
-          <option value="średni">Średni</option>
-          <option value="wysoki">Wysoki</option>
-        </select>
-        <button type="submit">{{ storyForm.id === null ? 'Dodaj historyjkę' : 'Aktualizuj historyjkę' }}</button>
-        <button v-if="storyForm.id !== null" type="button" @click="resetStoryForm">Anuluj</button>
-      </form>
-      <div style="display: flex; gap: 30px; margin-top: 20px;">
-        <div style="flex: 1;">
-          <h3>Do zrobienia</h3>
-          <ul>
-            <li v-for="story in storiesTodo" :key="story.id">
-              <b>{{ story.name }}</b> ({{ story.priority }})<br />
-              {{ story.description }}<br />
-              <small>Właściciel: {{ user.firstName }} {{ user.lastName }}</small><br />
-              <button @click="editStory(story)">Edytuj</button>
-              <button @click="deleteStory(story.id)">Usuń</button>
-              <button @click="() => { activeStoryId = story.id; resetTaskView(); }">Zadania</button>
-              <div style="margin-top: 8px;">
-                <button @click="changeStoryState(story, 'doing')">Przenieś do 'w trakcie'</button>
-                <button @click="changeStoryState(story, 'done')">Przenieś do 'zakończone'</button>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <div style="flex: 1;">
-          <h3>W trakcie</h3>
-          <ul>
-            <li v-for="story in storiesDoing" :key="story.id">
-              <b>{{ story.name }}</b> ({{ story.priority }})<br />
-              {{ story.description }}<br />
-              <small>Właściciel: {{ user.firstName }} {{ user.lastName }}</small><br />
-              <button @click="editStory(story)">Edytuj</button>
-              <button @click="deleteStory(story.id)">Usuń</button>
-              <button @click="() => { activeStoryId = story.id; resetTaskView(); }">Zadania</button>
-              <div style="margin-top: 8px;">
-                <button @click="changeStoryState(story, 'todo')">Cofnij do 'do zrobienia'</button>
-                <button @click="changeStoryState(story, 'done')">Przenieś do 'zakończone'</button>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <div style="flex: 1;">
-          <h3>Zakończone</h3>
-          <ul>
-            <li v-for="story in storiesDone" :key="story.id">
-              <b>{{ story.name }}</b> ({{ story.priority }})<br />
-              {{ story.description }}<br />
-              <small>Właściciel: {{ user.firstName }} {{ user.lastName }}</small><br />
-              <button @click="editStory(story)">Edytuj</button>
-              <button @click="deleteStory(story.id)">Usuń</button>
-              <button @click="() => { activeStoryId = story.id; resetTaskView(); }">Zadania</button>
-              <div style="margin-top: 8px;">
-                <button @click="changeStoryState(story, 'doing')">Cofnij do 'w trakcie'</button>
-                <button @click="changeStoryState(story, 'todo')">Cofnij do 'do zrobienia'</button>
-              </div>
-            </li>
-          </ul>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <header class="bg-white dark:bg-gray-800 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ManageMe</h1>
+        <div class="flex items-center space-x-4">
+          <span class="text-gray-700 dark:text-gray-300">{{ user.firstName }} {{ user.lastName }}</span>
+          <DarkModeToggle />
         </div>
       </div>
-    </div>
-    <div v-if="activeStory">
-      <hr />
-      <h2>Zadania dla historyjki: {{ activeStory.name }}</h2>
-      <form @submit.prevent="onTaskSubmit">
-        <input v-model="taskForm.name" placeholder="Nazwa zadania" required />
-        <input v-model="taskForm.description" placeholder="Opis zadania" required />
-        <select v-model="taskForm.priority">
-          <option value="niski">Niski</option>
-          <option value="średni">Średni</option>
-          <option value="wysoki">Wysoki</option>
-        </select>
-        <input v-model.number="taskForm.estimatedTime" type="number" min="1" placeholder="Czas (h)" required style="width: 80px;" />
-        <select v-model.number="taskForm.assigneeId">
-          <option :value="null">Brak przypisania</option>
-          <option v-for="u in devUsers" :key="u.id" :value="u.id">{{ u.firstName }} {{ u.lastName }} ({{ u.role }})</option>
-        </select>
-        <button type="submit">{{ taskForm.id === null ? 'Dodaj zadanie' : 'Aktualizuj zadanie' }}</button>
-        <button v-if="taskForm.id !== null" type="button" @click="resetTaskForm">Anuluj</button>
-      </form>
-      <div style="display: flex; gap: 30px; margin-top: 20px;">
-        <div style="flex: 1;">
-          <h3>Do zrobienia</h3>
-          <ul>
-            <li v-for="task in tasksTodo" :key="task.id">
-              <b>{{ task.name }}</b> ({{ task.priority }})<br />
-              {{ task.description }}<br />
-              <small>Przewidywany czas: {{ task.estimatedTime }}h</small><br />
-              <button @click="editTask(task)">Edytuj</button>
-              <button @click="deleteTask(task.id)">Usuń</button>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Projects Section -->
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Projekty</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <form @submit.prevent="onSubmit" class="space-y-4">
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
+              <input
+                type="text"
+                id="name"
+                v-model="form.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
+              <textarea
+                id="description"
+                v-model="form.description"
+                rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              ></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                @click="resetForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+              >
+                Reset
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
+                {{ form.id === null ? 'Dodaj' : 'Zapisz' }}
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                v-for="project in projects"
+                :key="project.id"
+                :class="[
+                  'rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer',
+                  project.id === activeProjectId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : 'bg-white dark:bg-gray-700'
+                ]"
+              >
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ project.name }}</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ project.description }}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button
+                      @click="editProject(project)"
+                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      Edytuj
+                    </button>
+                    <button
+                      @click="deleteProject(project.id)"
+                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                </div>
+                <button
+                  @click="setActiveProject(project.id)"
+                  class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                  Wybierz
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stories Section -->
+      <div v-if="activeProject" class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Historie użytkownika</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <form @submit.prevent="onStorySubmit" class="space-y-4">
+            <div>
+              <label for="storyName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
+              <input
+                type="text"
+                id="storyName"
+                v-model="storyForm.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label for="storyDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
+              <textarea
+                id="storyDescription"
+                v-model="storyForm.description"
+                rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              ></textarea>
+            </div>
+            <div>
+              <label for="storyPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+              <select
+                id="storyPriority"
+                v-model="storyForm.priority"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="niski">Niski</option>
+                <option value="średni">Średni</option>
+                <option value="wysoki">Wysoki</option>
+              </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                @click="resetStoryForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+              >
+                Reset
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
+                {{ storyForm.id === null ? 'Dodaj' : 'Zapisz' }}
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <!-- Todo Column -->
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Do zrobienia</h3>
+              <div class="space-y-4">
+                <div
+                  v-for="story in storiesTodo"
+                  :key="story.id"
+                  :class="[
+                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                  ]"
+                  @click="activeStoryId = story.id"
+                >
+                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
+                  <div class="mt-4 flex justify-between items-center">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
+                    <div class="flex space-x-2">
+                      <button
+                        @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edytuj
+                      </button>
+                      <button
+                        @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Usuń
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    @click.stop="changeStoryState(story, 'doing')"
+                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                  >
+                    Rozpocznij
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Doing Column -->
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">W trakcie</h3>
+              <div class="space-y-4">
+                <div
+                  v-for="story in storiesDoing"
+                  :key="story.id"
+                  :class="[
+                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                  ]"
+                  @click="activeStoryId = story.id"
+                >
+                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
+                  <div class="mt-4 flex justify-between items-center">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
+                    <div class="flex space-x-2">
+                      <button
+                        @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edytuj
+                      </button>
+                      <button
+                        @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Usuń
+                      </button>
+                    </div>
+                  </div>
+                  <div class="mt-4 flex space-x-2">
+                    <button
+                      @click.stop="changeStoryState(story, 'todo')"
+                      class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                    >
+                      Wróć
+                    </button>
+                    <button
+                      @click.stop="changeStoryState(story, 'done')"
+                      class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    >
+                      Zakończ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Done Column -->
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Zakończone</h3>
+              <div class="space-y-4">
+                <div
+                  v-for="story in storiesDone"
+                  :key="story.id"
+                  :class="[
+                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                  ]"
+                  @click="activeStoryId = story.id"
+                >
+                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
+                  <div class="mt-4 flex justify-between items-center">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
+                    <div class="flex space-x-2">
+                      <button
+                        @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edytuj
+                      </button>
+                      <button
+                        @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Usuń
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    @click.stop="changeStoryState(story, 'doing')"
+                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                  >
+                    Wznów
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks Section -->
+      <div v-if="activeStory" class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Zadania</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <form @submit.prevent="onTaskSubmit" class="space-y-4">
+            <div>
+              <label for="taskName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
+              <input
+                type="text"
+                id="taskName"
+                v-model="taskForm.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label for="taskDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
+              <textarea
+                id="taskDescription"
+                v-model="taskForm.description"
+                rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              ></textarea>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label>Przypisz osobę:</label>
-                <select @change="e => assignUserToTask(task, Number((e.target as HTMLSelectElement).value))">
-                  <option :value="null">Brak</option>
-                  <option v-for="u in devUsers" :key="u.id" :value="u.id">{{ u.firstName }} {{ u.lastName }} ({{ u.role }})</option>
+                <label for="taskPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+                <select
+                  id="taskPriority"
+                  v-model="taskForm.priority"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="niski">Niski</option>
+                  <option value="średni">Średni</option>
+                  <option value="wysoki">Wysoki</option>
                 </select>
               </div>
-              <div style="margin-top: 8px;">
-                <button @click="assignUserToTask(task, task.assigneeId ?? user.id)">Przenieś do 'w trakcie'</button>
-                <button @click="markTaskDone(task)">Przenieś do 'zakończone'</button>
+              <div>
+                <label for="estimatedTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Szacowany czas (h)</label>
+                <input
+                  type="number"
+                  id="estimatedTime"
+                  v-model="taskForm.estimatedTime"
+                  min="1"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
               </div>
-            </li>
-          </ul>
-        </div>
-        <div style="flex: 1;">
-          <h3>W trakcie</h3>
-          <ul>
-            <li v-for="task in tasksDoing" :key="task.id">
-              <b>{{ task.name }}</b> ({{ task.priority }})<br />
-              {{ task.description }}<br />
-              <small>Przewidywany czas: {{ task.estimatedTime }}h</small><br />
-              <small>Start: {{ task.startDate ? (new Date(task.startDate)).toLocaleString() : '-' }}</small><br />
-              <small>Przypisany: {{ users.find(u => u.id === task.assigneeId)?.firstName }} {{ users.find(u => u.id === task.assigneeId)?.lastName }}</small><br />
-              <button @click="editTask(task)">Edytuj</button>
-              <button @click="deleteTask(task.id)">Usuń</button>
-              <button @click="markTaskDone(task)">Zakończ</button>
-              <div style="margin-top: 8px;">
-                <button @click="TaskService.update({ ...task, state: 'todo' }); loadTasks();">Cofnij do 'do zrobienia'</button>
-                <button @click="markTaskDone(task)">Przenieś do 'zakończone'</button>
+              <div>
+                <label for="assignee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Przypisany do</label>
+                <select
+                  id="assignee"
+                  v-model="taskForm.assigneeId"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option :value="null">Nie przypisano</option>
+                  <option v-for="dev in devUsers" :key="dev.id" :value="dev.id">
+                    {{ dev.firstName }} {{ dev.lastName }}
+                  </option>
+                </select>
               </div>
-            </li>
-          </ul>
-        </div>
-        <div style="flex: 1;">
-          <h3>Zakończone</h3>
-          <ul>
-            <li v-for="task in tasksDone" :key="task.id">
-              <b>{{ task.name }}</b> ({{ task.priority }})<br />
-              {{ task.description }}<br />
-              <small>Przewidywany czas: {{ task.estimatedTime }}h</small><br />
-              <small>Start: {{ task.startDate ? (new Date(task.startDate)).toLocaleString() : '-' }}</small><br />
-              <small>Koniec: {{ task.endDate ? (new Date(task.endDate)).toLocaleString() : '-' }}</small><br />
-              <small>Przypisany: {{ users.find(u => u.id === task.assigneeId)?.firstName }} {{ users.find(u => u.id === task.assigneeId)?.lastName }}</small><br />
-              <button @click="editTask(task)">Edytuj</button>
-              <button @click="deleteTask(task.id)">Usuń</button>
-              <div style="margin-top: 8px;">
-                <button @click="TaskService.update({ ...task, state: 'doing', endDate: undefined }); loadTasks();">Cofnij do 'w trakcie'</button>
-                <button @click="TaskService.update({ ...task, state: 'todo', endDate: undefined, startDate: undefined, assigneeId: undefined }); loadTasks();">Cofnij do 'do zrobienia'</button>
+            </div>
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                @click="resetTaskForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+              >
+                Reset
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
+                {{ taskForm.id === null ? 'Dodaj' : 'Zapisz' }}
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                v-for="task in tasks"
+                :key="task.id"
+                class="bg-white dark:bg-gray-700 rounded-lg shadow p-4"
+              >
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ task.name }}</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ task.description }}</p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button
+                      @click="editTask(task)"
+                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      Edytuj
+                    </button>
+                    <button
+                      @click="deleteTask(task.id)"
+                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-4 space-y-2">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">Priorytet:</span>
+                    <span class="text-gray-900 dark:text-white">{{ task.priority }}</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">Szacowany czas:</span>
+                    <span class="text-gray-900 dark:text-white">{{ task.estimatedTime }}h</span>
+                  </div>
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">Przypisany do:</span>
+                    <span class="text-gray-900 dark:text-white">
+                      {{ task.assigneeId ? (users.find(u => u.id === task.assigneeId)?.firstName + ' ' + users.find(u => u.id === task.assigneeId)?.lastName) : 'Nie przypisano' }}
+                    </span>
+                  </div>
+                </div>
+                <div class="mt-4 flex space-x-2">
+                  <button
+                    @click="changeTaskState(task, 'todo')"
+                    :class="[
+                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                      task.state === 'todo'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                    ]"
+                  >
+                    Do zrobienia
+                  </button>
+                  <button
+                    @click="changeTaskState(task, 'doing')"
+                    :class="[
+                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                      task.state === 'doing'
+                        ? 'bg-yellow-500 text-white border-yellow-500'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                    ]"
+                  >
+                    W trakcie
+                  </button>
+                  <button
+                    @click="changeTaskState(task, 'done')"
+                    :class="[
+                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                      task.state === 'done'
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                    ]"
+                  >
+                    Zakończone
+                  </button>
+                </div>
               </div>
-            </li>
-          </ul>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
-<style scoped>
-input, select {
-  margin: 0 5px 10px 0;
-  padding: 4px 8px;
-}
-button {
-  margin-left: 5px;
-}
-form {
-  margin-bottom: 20px;
-}
+<style>
+@import './assets/main.css';
 </style>

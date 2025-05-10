@@ -7,7 +7,7 @@ const users: User[] = [
 ];
 
 export class AuthService {
-  // Mockowany użytkownik (admin)
+  // Mockowany użytkownik 
   private static currentUser: User = users[0];
 
   static getCurrentUser(): User {
