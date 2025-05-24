@@ -1,34 +1,50 @@
+import { db } from '../firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where
+} from 'firebase/firestore';
 import type { Story } from '../models/Story';
 
 export class StoryService {
-  private static storageKey = 'stories';
+  private static collectionName = 'stories';
 
-  static getAll(): Story[] {
-    const data = localStorage.getItem(this.storageKey);
-    return data ? JSON.parse(data) : [];
+  static async getAll(): Promise<Story[]> {
+    const querySnapshot = await getDocs(collection(db, this.collectionName));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data() as Story;
+      return { ...data, id: doc.id };
+    });
   }
 
-  static getByProject(projectId: number): Story[] {
-    return this.getAll().filter(story => story.projectId === projectId);
+  static async getByProject(projectId: string): Promise<Story[]> {
+    const q = query(collection(db, this.collectionName), where('projectId', '==', projectId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data() as Story;
+      return { ...data, id: doc.id };
+    });
   }
 
-  static saveAll(stories: Story[]) {
-    localStorage.setItem(this.storageKey, JSON.stringify(stories));
+  static async add(story: Story) {
+    const { id, ...data } = story;
+    await addDoc(collection(db, this.collectionName), data);
   }
 
-  static add(story: Story) {
-    const stories = this.getAll();
-    stories.push(story);
-    this.saveAll(stories);
+  static async update(updated: Story) {
+    if (!updated.id) throw new Error('Story must have an id');
+    const ref = doc(db, this.collectionName, updated.id);
+    const { id, ...data } = updated;
+    await updateDoc(ref, data);
   }
 
-  static update(updated: Story) {
-    const stories = this.getAll().map(s => s.id === updated.id ? updated : s);
-    this.saveAll(stories);
-  }
-
-  static delete(id: number) {
-    const stories = this.getAll().filter(s => s.id !== id);
-    this.saveAll(stories);
+  static async delete(id: string) {
+    const ref = doc(db, this.collectionName, id);
+    await deleteDoc(ref);
   }
 } 

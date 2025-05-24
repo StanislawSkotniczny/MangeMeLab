@@ -10,6 +10,9 @@ import type { User, UserRole } from './models/User';
 import type { Task, TaskPriority, TaskState } from './models/Task';
 import { TaskService } from './services/TaskService';
 import DarkModeToggle from './components/DarkModeToggle.vue';
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from './firebase'
+import FirebaseLogin from './components/FirebaseLogin.vue'
 
 // Użytkownicy
 const user: User = AuthService.getCurrentUser();
@@ -18,49 +21,39 @@ const devUsers = computed(() => users.filter(u => u.role === 'developer' || u.ro
 
 // Projekty
 const projects = ref<Project[]>([]);
-const form = ref<{ id: number | null; name: string; description: string }>({
+const form = ref<{ id: string | null; name: string; description: string }>({
   id: null,
   name: '',
   description: ''
 });
 
 // Aktywny projekt
-const activeProjectId = ref<number | null>(ActiveProjectService.getActiveProject());
+const activeProjectId = ref<string | null>(null);
 const activeProject = computed(() => projects.value.find(p => p.id === activeProjectId.value) ?? null);
 
-function setActiveProject(id: number) {
-  activeProjectId.value = id;
-  ActiveProjectService.setActiveProject(id);
-  loadStories();
-  resetTaskView();
-  activeStoryId.value = null;
-}
-
-// CRUD projektów
-function loadProjects() {
-  projects.value = ProjectService.getAll();
+async function loadProjects() {
+  projects.value = await ProjectService.getAll();
 }
 
 function resetForm() {
   form.value = { id: null, name: '', description: '' };
 }
 
-function onSubmit() {
+async function onSubmit() {
   if (form.value.id === null) {
-    const newProject: Project = {
-      id: Date.now(),
+    const newProject = {
       name: form.value.name,
       description: form.value.description
     };
-    ProjectService.add(newProject);
+    await ProjectService.add(newProject as Project);
   } else {
-    ProjectService.update({
+    await ProjectService.update({
       id: form.value.id,
       name: form.value.name,
       description: form.value.description
     });
   }
-  loadProjects();
+  await loadProjects();
   resetForm();
 }
 
@@ -68,20 +61,20 @@ function editProject(project: Project) {
   form.value = { ...project };
 }
 
-function deleteProject(id: number) {
-  ProjectService.delete(id);
-  loadProjects();
+async function deleteProject(id: string) {
+  await ProjectService.delete(id);
+  await loadProjects();
   resetForm();
   if (activeProjectId.value === id) {
     activeProjectId.value = null;
-    ActiveProjectService.setActiveProject(-1);
+    await ActiveProjectService.setActiveProject('');
   }
 }
 
 // --- STORY CRUD ---
 const stories = ref<Story[]>([]);
 const storyForm = ref<{
-  id: number | null;
+  id: string | null;
   name: string;
   description: string;
   priority: StoryPriority;
@@ -91,12 +84,12 @@ const storyForm = ref<{
   description: '',
   priority: 'średni',
 });
-const activeStoryId = ref<number | null>(null);
+const activeStoryId = ref<string | null>(null);
 const activeStory = computed(() => stories.value.find(s => s.id === activeStoryId.value) ?? null);
 
-function loadStories() {
+async function loadStories() {
   if (activeProjectId.value != null) {
-    stories.value = StoryService.getByProject(activeProjectId.value);
+    stories.value = await StoryService.getByProject(activeProjectId.value);
   } else {
     stories.value = [];
   }
@@ -106,23 +99,22 @@ function resetStoryForm() {
   storyForm.value = { id: null, name: '', description: '', priority: 'średni' };
 }
 
-function onStorySubmit() {
+async function onStorySubmit() {
   if (!activeProjectId.value) return;
   if (storyForm.value.id === null) {
-    const newStory: Story = {
-      id: Date.now(),
+    const newStory = {
+      id: Date.now().toString(),
       name: storyForm.value.name,
       description: storyForm.value.description,
       priority: storyForm.value.priority,
       projectId: activeProjectId.value,
       createdAt: new Date().toISOString(),
       state: 'todo',
-      ownerId: user.id
+      ownerId: user.id.toString()
     };
-    StoryService.add(newStory);
+    await StoryService.add(newStory as Story);
   } else {
-
-    StoryService.update({
+    await StoryService.update({
       id: storyForm.value.id,
       name: storyForm.value.name,
       description: storyForm.value.description,
@@ -130,10 +122,10 @@ function onStorySubmit() {
       projectId: activeProjectId.value,
       createdAt: stories.value.find(s => s.id === storyForm.value.id)?.createdAt || new Date().toISOString(),
       state: stories.value.find(s => s.id === storyForm.value.id)?.state || 'todo',
-      ownerId: user.id
+      ownerId: user.id.toString()
     });
   }
-  loadStories();
+  await loadStories();
   resetStoryForm();
 }
 
@@ -146,9 +138,9 @@ function editStory(story: Story) {
   };
 }
 
-function deleteStory(id: number) {
-  StoryService.delete(id);
-  loadStories();
+async function deleteStory(id: string) {
+  await StoryService.delete(id);
+  await loadStories();
   resetStoryForm();
   if (activeStoryId.value === id) {
     activeStoryId.value = null;
@@ -172,12 +164,12 @@ function changeStoryState(story: Story, newState: StoryState) {
 // --- TASKS ---
 const tasks = ref<Task[]>([]);
 const taskForm = ref<{
-  id: number | null;
+  id: string | null;
   name: string;
   description: string;
   priority: TaskPriority;
   estimatedTime: number;
-  assigneeId: number | null;
+  assigneeId: string | null;
 }>({
   id: null,
   name: '',
@@ -187,9 +179,10 @@ const taskForm = ref<{
   assigneeId: null
 });
 
-function loadTasks() {
+async function loadTasks() {
+  console.log('Ładuję zadania dla storyId:', activeStoryId.value);
   if (activeStoryId.value != null) {
-    tasks.value = TaskService.getByStory(activeStoryId.value);
+    tasks.value = await TaskService.getByStory(activeStoryId.value);
   } else {
     tasks.value = [];
   }
@@ -204,15 +197,15 @@ function resetTaskView() {
   resetTaskForm();
 }
 
-function onTaskSubmit() {
+async function onTaskSubmit() {
   if (!activeStoryId.value) return;
   if (taskForm.value.id === null) {
     const newTask: Task = {
-      id: Date.now(),
+      id: Date.now().toString(),
       name: taskForm.value.name,
       description: taskForm.value.description,
       priority: taskForm.value.priority,
-      storyId: activeStoryId.value,
+      storyId: activeStoryId.value!,
       estimatedTime: taskForm.value.estimatedTime,
       state: taskForm.value.assigneeId ? 'doing' : 'todo',
       createdAt: new Date().toISOString(),
@@ -220,15 +213,16 @@ function onTaskSubmit() {
       endDate: undefined,
       assigneeId: taskForm.value.assigneeId || undefined
     };
-    TaskService.add(newTask);
+    console.log('Dodaję zadanie:', newTask);
+    await TaskService.add(newTask);
   } else {
     const prev = tasks.value.find(t => t.id === taskForm.value.id);
-    TaskService.update({
+    await TaskService.update({
       id: taskForm.value.id,
       name: taskForm.value.name,
       description: taskForm.value.description,
       priority: taskForm.value.priority,
-      storyId: activeStoryId.value,
+      storyId: activeStoryId.value!,
       estimatedTime: taskForm.value.estimatedTime,
       state: prev?.state || 'todo',
       createdAt: prev?.createdAt || new Date().toISOString(),
@@ -237,7 +231,7 @@ function onTaskSubmit() {
       assigneeId: taskForm.value.assigneeId || undefined
     });
   }
-  loadTasks();
+  await loadTasks();
   resetTaskForm();
 }
 
@@ -252,14 +246,13 @@ function editTask(task: Task) {
   };
 }
 
-function deleteTask(id: number) {
-  TaskService.delete(id);
-  loadTasks();
+async function deleteTask(id: string) {
+  await TaskService.delete(id);
+  await loadTasks();
   resetTaskForm();
 }
 
-function assignUserToTask(task: Task, userId: number) {
-  // Przypisanie osoby automatycznie zmienia stan na doing i ustawia datę startu
+function assignUserToTask(task: Task, userId: string) {
   TaskService.update({
     ...task,
     assigneeId: userId,
@@ -287,15 +280,44 @@ const tasksTodo = computed(() => tasks.value.filter(t => t.state === 'todo'));
 const tasksDoing = computed(() => tasks.value.filter(t => t.state === 'doing'));
 const tasksDone = computed(() => tasks.value.filter(t => t.state === 'done'));
 
-onMounted(() => {
-  loadProjects();
-  loadStories();
+async function setActiveProject(id: string) {
+  activeProjectId.value = id;
+  await ActiveProjectService.setActiveProject(id);
+  await loadStories();
+  // Ustaw pierwszą historię jako aktywną, jeśli istnieje
+  if (stories.value.length > 0) {
+    activeStoryId.value = stories.value[0].id;
+    await loadTasks();
+  } else {
+    activeStoryId.value = null;
+    tasks.value = [];
+  }
+  resetTaskView();
+}
+
+function onSelectStory(storyId: string) {
+  activeStoryId.value = storyId;
   loadTasks();
+}
+
+const loggedIn = ref(false)
+onAuthStateChanged(auth, (user) => {
+  loggedIn.value = !!user
+})
+
+onMounted(async () => {
+  await loadProjects();
+  await loadStories();
+  if (stories.value.length > 0) {
+    activeStoryId.value = stories.value[0].id;
+    await loadTasks();
+  }
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <FirebaseLogin v-if="!loggedIn" />
+  <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <header class="bg-white dark:bg-gray-800 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ManageMe</h1>
@@ -453,7 +475,7 @@ onMounted(() => {
                     'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
                     story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
                   ]"
-                  @click="activeStoryId = story.id"
+                  @click="onSelectStory(story.id)"
                 >
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
@@ -495,7 +517,7 @@ onMounted(() => {
                     'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
                     story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
                   ]"
-                  @click="activeStoryId = story.id"
+                  @click="onSelectStory(story.id)"
                 >
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
@@ -545,7 +567,7 @@ onMounted(() => {
                     'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
                     story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
                   ]"
-                  @click="activeStoryId = story.id"
+                  @click="onSelectStory(story.id)"
                 >
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>

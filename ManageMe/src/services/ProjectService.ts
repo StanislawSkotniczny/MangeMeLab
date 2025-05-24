@@ -1,30 +1,44 @@
+import { db } from '../firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc
+} from 'firebase/firestore';
 import type { Project } from '../models/Project';
 
 export class ProjectService {
-  private static storageKey = 'projects';
+  private static collectionName = 'projects';
 
-  static getAll(): Project[] {
-    const data = localStorage.getItem(this.storageKey);
-    return data ? JSON.parse(data) : [];
+  static async getAll(): Promise<Project[]> {
+    const querySnapshot = await getDocs(collection(db, this.collectionName));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data() as Project;
+      return { ...data, id: doc.id };
+    });
   }
 
-  static saveAll(projects: Project[]) {
-    localStorage.setItem(this.storageKey, JSON.stringify(projects));
+  static async add(project: Project) {
+    const { id, ...data } = project;
+    
+    Object.keys(data).forEach(key => {
+      if ((data as Record<string, any>)[key] === undefined) delete (data as Record<string, any>)[key];
+    });
+    console.log('Dodawany projekt do Firestore:', data);
+    await addDoc(collection(db, this.collectionName), data);
   }
 
-  static add(project: Project) {
-    const projects = this.getAll();
-    projects.push(project);
-    this.saveAll(projects);
+  static async update(updated: Project) {
+    if (!updated.id) throw new Error('Project must have an id');
+    const ref = doc(db, this.collectionName, updated.id);
+    const { id, ...data } = updated;
+    await updateDoc(ref, data);
   }
 
-  static update(updated: Project) {
-    const projects = this.getAll().map(p => p.id === updated.id ? updated : p);
-    this.saveAll(projects);
-  }
-
-  static delete(id: number) {
-    const projects = this.getAll().filter(p => p.id !== id);
-    this.saveAll(projects);
+  static async delete(id: string) {
+    const ref = doc(db, this.collectionName, id);
+    await deleteDoc(ref);
   }
 } 
