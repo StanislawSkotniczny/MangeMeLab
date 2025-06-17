@@ -10,7 +10,7 @@ import type { User, UserRole } from './models/User';
 import type { Task, TaskPriority, TaskState } from './models/Task';
 import { TaskService } from './services/TaskService';
 import DarkModeToggle from './components/DarkModeToggle.vue';
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import FirebaseLogin from './components/FirebaseLogin.vue'
 
@@ -305,6 +305,14 @@ onAuthStateChanged(auth, (user) => {
   loggedIn.value = !!user
 })
 
+async function logout() {
+  try {
+    await signOut(auth)
+  } catch (error) {
+    console.error('Błąd podczas wylogowywania:', error)
+  }
+}
+
 onMounted(async () => {
   await loadProjects();
   await loadStories();
@@ -323,6 +331,10 @@ onMounted(async () => {
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ManageMe</h1>
         <div class="flex items-center space-x-4">
           <span class="text-gray-700 dark:text-gray-300">{{ user.firstName }} {{ user.lastName }}</span>
+          <button @click="logout"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
+            Wyloguj
+          </button>
           <DarkModeToggle />
         </div>
       </div>
@@ -336,34 +348,21 @@ onMounted(async () => {
           <form @submit.prevent="onSubmit" class="space-y-4">
             <div>
               <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input
-                type="text"
-                id="name"
-                v-model="form.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <input type="text" id="name" v-model="form.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
             <div>
               <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea
-                id="description"
-                v-model="form.description"
-                rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              ></textarea>
+              <textarea id="description" v-model="form.description" rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
             </div>
             <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                @click="resetForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-              >
+              <button type="button" @click="resetForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                 Reset
               </button>
-              <button
-                type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
+              <button type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                 {{ form.id === null ? 'Dodaj' : 'Zapisz' }}
               </button>
             </div>
@@ -371,38 +370,28 @@ onMounted(async () => {
 
           <div class="mt-6">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div
-                v-for="project in projects"
-                :key="project.id"
-                :class="[
-                  'rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer',
-                  project.id === activeProjectId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : 'bg-white dark:bg-gray-700'
-                ]"
-              >
+              <div v-for="project in projects" :key="project.id" :class="[
+                'rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer',
+                project.id === activeProjectId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : 'bg-white dark:bg-gray-700'
+              ]">
                 <div class="flex justify-between items-start">
                   <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ project.name }}</h3>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ project.description }}</p>
                   </div>
                   <div class="flex space-x-2">
-                    <button
-                      @click="editProject(project)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
+                    <button @click="editProject(project)"
+                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                       Edytuj
                     </button>
-                    <button
-                      @click="deleteProject(project.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
+                    <button @click="deleteProject(project.id)"
+                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                       Usuń
                     </button>
                   </div>
                 </div>
-                <button
-                  @click="setActiveProject(project.id)"
-                  class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                >
+                <button @click="setActiveProject(project.id)"
+                  class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                   Wybierz
                 </button>
               </div>
@@ -418,46 +407,32 @@ onMounted(async () => {
           <form @submit.prevent="onStorySubmit" class="space-y-4">
             <div>
               <label for="storyName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input
-                type="text"
-                id="storyName"
-                v-model="storyForm.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <input type="text" id="storyName" v-model="storyForm.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
             <div>
-              <label for="storyDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea
-                id="storyDescription"
-                v-model="storyForm.description"
-                rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              ></textarea>
+              <label for="storyDescription"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
+              <textarea id="storyDescription" v-model="storyForm.description" rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
             </div>
             <div>
-              <label for="storyPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
-              <select
-                id="storyPriority"
-                v-model="storyForm.priority"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              >
+              <label for="storyPriority"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+              <select id="storyPriority" v-model="storyForm.priority"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                 <option value="niski">Niski</option>
                 <option value="średni">Średni</option>
                 <option value="wysoki">Wysoki</option>
               </select>
             </div>
             <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                @click="resetStoryForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-              >
+              <button type="button" @click="resetStoryForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                 Reset
               </button>
-              <button
-                type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
+              <button type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                 {{ storyForm.id === null ? 'Dodaj' : 'Zapisz' }}
               </button>
             </div>
@@ -468,38 +443,27 @@ onMounted(async () => {
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Do zrobienia</h3>
               <div class="space-y-4">
-                <div
-                  v-for="story in storiesTodo"
-                  :key="story.id"
-                  :class="[
-                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                  ]"
-                  @click="onSelectStory(story.id)"
-                >
+                <div v-for="story in storiesTodo" :key="story.id" :class="[
+                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                ]" @click="onSelectStory(story.id)">
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
                   <div class="mt-4 flex justify-between items-center">
                     <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
                     <div class="flex space-x-2">
-                      <button
-                        @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                      >
+                      <button @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                         Edytuj
                       </button>
-                      <button
-                        @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
+                      <button @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                         Usuń
                       </button>
                     </div>
                   </div>
-                  <button
-                    @click.stop="changeStoryState(story, 'doing')"
-                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                  >
+                  <button @click.stop="changeStoryState(story, 'doing')"
+                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                     Rozpocznij
                   </button>
                 </div>
@@ -510,45 +474,32 @@ onMounted(async () => {
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">W trakcie</h3>
               <div class="space-y-4">
-                <div
-                  v-for="story in storiesDoing"
-                  :key="story.id"
-                  :class="[
-                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                  ]"
-                  @click="onSelectStory(story.id)"
-                >
+                <div v-for="story in storiesDoing" :key="story.id" :class="[
+                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                ]" @click="onSelectStory(story.id)">
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
                   <div class="mt-4 flex justify-between items-center">
                     <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
                     <div class="flex space-x-2">
-                      <button
-                        @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                      >
+                      <button @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                         Edytuj
                       </button>
-                      <button
-                        @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
+                      <button @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                         Usuń
                       </button>
                     </div>
                   </div>
                   <div class="mt-4 flex space-x-2">
-                    <button
-                      @click.stop="changeStoryState(story, 'todo')"
-                      class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                    >
+                    <button @click.stop="changeStoryState(story, 'todo')"
+                      class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                       Wróć
                     </button>
-                    <button
-                      @click.stop="changeStoryState(story, 'done')"
-                      class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                    >
+                    <button @click.stop="changeStoryState(story, 'done')"
+                      class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                       Zakończ
                     </button>
                   </div>
@@ -560,38 +511,27 @@ onMounted(async () => {
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Zakończone</h3>
               <div class="space-y-4">
-                <div
-                  v-for="story in storiesDone"
-                  :key="story.id"
-                  :class="[
-                    'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                    story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                  ]"
-                  @click="onSelectStory(story.id)"
-                >
+                <div v-for="story in storiesDone" :key="story.id" :class="[
+                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
+                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
+                ]" @click="onSelectStory(story.id)">
                   <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
                   <div class="mt-4 flex justify-between items-center">
                     <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
                     <div class="flex space-x-2">
-                      <button
-                        @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                      >
+                      <button @click.stop="editStory(story)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                         Edytuj
                       </button>
-                      <button
-                        @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
+                      <button @click.stop="deleteStory(story.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                         Usuń
                       </button>
                     </div>
                   </div>
-                  <button
-                    @click.stop="changeStoryState(story, 'doing')"
-                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                  >
+                  <button @click.stop="changeStoryState(story, 'doing')"
+                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                     Wznów
                   </button>
                 </div>
@@ -608,52 +548,37 @@ onMounted(async () => {
           <form @submit.prevent="onTaskSubmit" class="space-y-4">
             <div>
               <label for="taskName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input
-                type="text"
-                id="taskName"
-                v-model="taskForm.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <input type="text" id="taskName" v-model="taskForm.name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
             <div>
-              <label for="taskDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea
-                id="taskDescription"
-                v-model="taskForm.description"
-                rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              ></textarea>
+              <label for="taskDescription"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
+              <textarea id="taskDescription" v-model="taskForm.description" rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
             </div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label for="taskPriority" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
-                <select
-                  id="taskPriority"
-                  v-model="taskForm.priority"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
+                <label for="taskPriority"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+                <select id="taskPriority" v-model="taskForm.priority"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                   <option value="niski">Niski</option>
                   <option value="średni">Średni</option>
                   <option value="wysoki">Wysoki</option>
                 </select>
               </div>
               <div>
-                <label for="estimatedTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Szacowany czas (h)</label>
-                <input
-                  type="number"
-                  id="estimatedTime"
-                  v-model="taskForm.estimatedTime"
-                  min="1"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
+                <label for="estimatedTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Szacowany
+                  czas (h)</label>
+                <input type="number" id="estimatedTime" v-model="taskForm.estimatedTime" min="1"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
               </div>
               <div>
-                <label for="assignee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Przypisany do</label>
-                <select
-                  id="assignee"
-                  v-model="taskForm.assigneeId"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
+                <label for="assignee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Przypisany
+                  do</label>
+                <select id="assignee" v-model="taskForm.assigneeId"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                   <option :value="null">Nie przypisano</option>
                   <option v-for="dev in devUsers" :key="dev.id" :value="dev.id">
                     {{ dev.firstName }} {{ dev.lastName }}
@@ -662,17 +587,12 @@ onMounted(async () => {
               </div>
             </div>
             <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                @click="resetTaskForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-              >
+              <button type="button" @click="resetTaskForm"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
                 Reset
               </button>
-              <button
-                type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
+              <button type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
                 {{ taskForm.id === null ? 'Dodaj' : 'Zapisz' }}
               </button>
             </div>
@@ -680,27 +600,19 @@ onMounted(async () => {
 
           <div class="mt-6">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div
-                v-for="task in tasks"
-                :key="task.id"
-                class="bg-white dark:bg-gray-700 rounded-lg shadow p-4"
-              >
+              <div v-for="task in tasks" :key="task.id" class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
                 <div class="flex justify-between items-start">
                   <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ task.name }}</h3>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ task.description }}</p>
                   </div>
                   <div class="flex space-x-2">
-                    <button
-                      @click="editTask(task)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
+                    <button @click="editTask(task)"
+                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                       Edytuj
                     </button>
-                    <button
-                      @click="deleteTask(task.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
+                    <button @click="deleteTask(task.id)"
+                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                       Usuń
                     </button>
                   </div>
@@ -717,42 +629,34 @@ onMounted(async () => {
                   <div class="flex justify-between text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Przypisany do:</span>
                     <span class="text-gray-900 dark:text-white">
-                      {{ task.assigneeId ? (users.find(u => u.id === task.assigneeId)?.firstName + ' ' + users.find(u => u.id === task.assigneeId)?.lastName) : 'Nie przypisano' }}
+                      {{task.assigneeId ? (users.find(u => u.id === task.assigneeId)?.firstName + ' ' + users.find(u =>
+                        u.id === task.assigneeId)?.lastName) : 'Nie przypisano' }}
                     </span>
                   </div>
                 </div>
                 <div class="mt-4 flex space-x-2">
-                  <button
-                    @click="changeTaskState(task, 'todo')"
-                    :class="[
-                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                      task.state === 'todo'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    ]"
-                  >
+                  <button @click="changeTaskState(task, 'todo')" :class="[
+                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                    task.state === 'todo'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                  ]">
                     Do zrobienia
                   </button>
-                  <button
-                    @click="changeTaskState(task, 'doing')"
-                    :class="[
-                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                      task.state === 'doing'
-                        ? 'bg-yellow-500 text-white border-yellow-500'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    ]"
-                  >
+                  <button @click="changeTaskState(task, 'doing')" :class="[
+                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                    task.state === 'doing'
+                      ? 'bg-yellow-500 text-white border-yellow-500'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                  ]">
                     W trakcie
                   </button>
-                  <button
-                    @click="changeTaskState(task, 'done')"
-                    :class="[
-                      'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                      task.state === 'done'
-                        ? 'bg-green-600 text-white border-green-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                    ]"
-                  >
+                  <button @click="changeTaskState(task, 'done')" :class="[
+                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
+                    task.state === 'done'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                  ]">
                     Zakończone
                   </button>
                 </div>
