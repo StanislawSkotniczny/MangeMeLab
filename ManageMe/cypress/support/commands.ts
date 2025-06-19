@@ -20,14 +20,14 @@ Cypress.Commands.add('login', () => {
   cy.wait(2000);
 
   cy.get('body').then(($body) => {
-    if ($body.text().includes('Projekty') && !$body.find('#email').length) {
+    if ($body.text().includes('Projekty') && !$body.find('input[placeholder="Login"]').length) {
       cy.log('Already logged in, skipping login process');
       return;
     }
 
     cy.log('Not logged in, performing login');
-    cy.get('#email', { timeout: 10000 }).should('be.visible').type('test@example.com');
-    cy.get('#password', { timeout: 5000 }).should('be.visible').type('testpassword123');
+    cy.get('input[placeholder="Login"]', { timeout: 10000 }).should('be.visible').type('dev');
+    cy.get('input[placeholder="Hasło"]', { timeout: 5000 }).should('be.visible').type('dev');
     cy.get('button[type="submit"]').click();
 
     cy.contains('Projekty', { timeout: 15000 }).should('be.visible');
@@ -49,11 +49,15 @@ Cypress.Commands.add('submitForm', () => {
 Cypress.Commands.add('createProject', (name: string, description: string) => {
   cy.contains('Projekty').should('be.visible');
 
-  cy.get('input[id="name"]').clear().type(name);
-  cy.get('textarea[id="description"]').clear().type(description);
 
-  cy.submitForm();
+  cy.get('input[id="projectName"]').clear().type(name);
+  cy.get('textarea[id="projectDescription"]').clear().type(description);
 
+  cy.get('form').first().within(() => {
+    cy.get('button').contains('Dodaj').click();
+  });
+
+  cy.wait(2000);
   cy.contains(name, { timeout: 10000 }).should('be.visible');
 });
 
@@ -72,13 +76,20 @@ Cypress.Commands.add('createStory', (name: string, description: string, priority
   cy.get('textarea[id="storyDescription"]').clear().type(description);
   cy.get('select[id="storyPriority"]').select(priority);
 
-  cy.submitForm();
+  cy.contains('Historie użytkownika').parent().within(() => {
+    cy.get('form').within(() => {
+      cy.get('button').contains('Dodaj').click();
+    });
+  });
 
-  cy.contains(name, { timeout: 10000 }).should('be.visible');
+  cy.wait(3000);
+  cy.contains(name, { timeout: 15000 }).should('be.visible');
 });
 
 Cypress.Commands.add('selectStory', (storyName: string) => {
-  cy.contains('h3', storyName).click();
+  cy.contains('.bg-white', storyName).within(() => {
+    cy.get('button').contains('Wybierz').click();
+  });
   cy.contains('Zadania', { timeout: 10000 }).should('be.visible');
 });
 
@@ -88,11 +99,16 @@ Cypress.Commands.add('createTask', (name: string, description: string, priority:
   cy.get('input[id="taskName"]').clear().type(name);
   cy.get('textarea[id="taskDescription"]').clear().type(description);
   cy.get('select[id="taskPriority"]').select(priority);
-  cy.get('input[id="estimatedTime"]').clear().type(estimatedTime.toString());
+  cy.get('input[id="taskEstimatedTime"]').clear().type(estimatedTime.toString());
 
-  cy.submitForm();
+  cy.contains('Zadania').parent().within(() => {
+    cy.get('form').within(() => {
+      cy.get('button').contains('Dodaj').click();
+    });
+  });
 
-  cy.contains(name, { timeout: 10000 }).should('be.visible');
+  cy.wait(3000);
+  cy.contains(name, { timeout: 15000 }).should('be.visible');
 });
 
 Cypress.Commands.add('logout', () => {
