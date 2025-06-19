@@ -1,8 +1,302 @@
+<template>
+  <!-- Formularz logowania jeśli nie zalogowany -->
+  <LoginForm v-if="!loggedIn" @login-success="onLoginSuccess" />
+
+  <!-- Główna aplikacja jeśli zalogowany -->
+  <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <header class="bg-white dark:bg-gray-800 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ManageMe</h1>
+        <div class="flex items-center space-x-4">
+          <span class="text-gray-700 dark:text-gray-300">
+            {{ currentUser?.firstName }} {{ currentUser?.lastName }}
+          </span>
+          <button @click="logout"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
+            Wyloguj
+          </button>
+          <DarkModeToggle />
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Section: Projects -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Projekty</h2>
+
+        <!-- Project Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+          <form @submit.prevent="onSubmit" class="space-y-4">
+            <div>
+              <label for="projectName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa
+                projektu</label>
+              <input id="projectName" v-model="form.name" type="text" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź nazwę projektu" />
+            </div>
+            <div>
+              <label for="projectDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis
+                projektu</label>
+              <textarea id="projectDescription" v-model="form.description" rows="3"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź opis projektu"></textarea>
+            </div>
+            <div class="flex space-x-2">
+              <button type="submit"
+                class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-200">
+                {{ form.id ? 'Aktualizuj projekt' : 'Dodaj projekt' }}
+              </button>
+              <button v-if="form.id" type="button" @click="resetForm"
+                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 transition-colors duration-200">
+                Anuluj
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Projects List -->
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div v-for="project in projects" :key="project.id"
+            class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200"
+            :class="{ 'ring-2 ring-blue-500': activeProjectId === project.id }">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ project.name }}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">{{ project.description }}</p>
+            <div class="flex space-x-2">
+              <button @click="selectProject(project)"
+                class="flex-1 bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors duration-200">
+                Wybierz
+              </button>
+              <button @click="editProject(project)"
+                class="px-3 py-2 bg-yellow-600 text-white text-sm rounded-md hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors duration-200">
+                Edytuj
+              </button>
+              <button @click="deleteProject(project.id)"
+                class="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
+                Usuń
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Stories -->
+      <section v-if="activeProjectId" class="mb-12">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Historyjki użytkownika</h2>
+
+        <!-- Story Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+          <form @submit.prevent="onStorySubmit" class="space-y-4">
+            <div>
+              <label for="storyName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa
+                historyjki</label>
+              <input id="storyName" v-model="storyForm.name" type="text" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź nazwę historyjki" />
+            </div>
+            <div>
+              <label for="storyDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis
+                historyjki</label>
+              <textarea id="storyDescription" v-model="storyForm.description" rows="3"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź opis historyjki"></textarea>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label for="storyPriority"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+                <select id="storyPriority" v-model="storyForm.priority"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="niski">Niski</option>
+                  <option value="średni">Średni</option>
+                  <option value="wysoki">Wysoki</option>
+                </select>
+              </div>
+              <div>
+                <label for="storyStatus"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                <select id="storyStatus" v-model="storyForm.status"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="todo">Do zrobienia</option>
+                  <option value="doing">W trakcie</option>
+                  <option value="done">Zakończone</option>
+                </select>
+              </div>
+              <div>
+                <label for="storyOwner"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Właściciel</label>
+                <select id="storyOwner" v-model="storyForm.ownerId"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option :value="null">Nie przypisano</option>
+                  <option v-for="user in users" :key="user.id" :value="user.id">
+                    {{ user.firstName }} {{ user.lastName }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="flex space-x-2">
+              <button type="submit"
+                class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-200">
+                {{ storyForm.id ? 'Aktualizuj historyjkę' : 'Dodaj historyjkę' }}
+              </button>
+              <button v-if="storyForm.id" type="button" @click="resetStoryForm"
+                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 transition-colors duration-200">
+                Anuluj
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Stories List -->
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div v-for="story in stories" :key="story.id"
+            class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200"
+            :class="{ 'ring-2 ring-blue-500': activeStoryId === story.id }">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ story.name }}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-2">{{ story.description }}</p>
+            <div class="space-y-1 text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <p><strong>Priorytet:</strong> {{ story.priority }}</p>
+              <p><strong>Status:</strong> {{ story.status }}</p>
+              <p>
+                <strong>Właściciel:</strong>
+                {{story.ownerId ?
+                  (users.find(u => u.id === story.ownerId)?.firstName + ' ' +
+                    users.find(u => u.id === story.ownerId)?.lastName) :
+                  'Nie przypisano'
+                }}
+              </p>
+            </div>
+            <div class="flex space-x-2">
+              <button @click="selectStory(story)"
+                class="flex-1 bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors duration-200">
+                Wybierz
+              </button>
+              <button @click="editStory(story)"
+                class="px-3 py-2 bg-yellow-600 text-white text-sm rounded-md hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors duration-200">
+                Edytuj
+              </button>
+              <button @click="deleteStory(story.id)"
+                class="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
+                Usuń
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Tasks -->
+      <section v-if="activeStoryId" class="mb-12">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Zadania</h2>
+
+        <!-- Task Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+          <form @submit.prevent="onTaskSubmit" class="space-y-4">
+            <div>
+              <label for="taskName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa
+                zadania</label>
+              <input id="taskName" v-model="taskForm.name" type="text" required
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź nazwę zadania" />
+            </div>
+            <div>
+              <label for="taskDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis
+                zadania</label>
+              <textarea id="taskDescription" v-model="taskForm.description" rows="3"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Wprowadź opis zadania"></textarea>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label for="taskPriority"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
+                <select id="taskPriority" v-model="taskForm.priority"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="niski">Niski</option>
+                  <option value="średni">Średni</option>
+                  <option value="wysoki">Wysoki</option>
+                </select>
+              </div>
+              <div>
+                <label for="taskState" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Stan</label>
+                <select id="taskState" v-model="taskForm.state"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option value="todo">Do zrobienia</option>
+                  <option value="doing">W trakcie</option>
+                  <option value="done">Zakończone</option>
+                </select>
+              </div>
+              <div>
+                <label for="taskEstimatedTime"
+                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Szacowany czas (h)</label>
+                <input id="taskEstimatedTime" v-model.number="taskForm.estimatedTime" type="number" min="0" step="0.5"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="8" />
+              </div>
+              <div>
+                <label for="taskAssignee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Przypisana
+                  osoba</label>
+                <select id="taskAssignee" v-model="taskForm.assigneeId"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <option :value="null">Nie przypisano</option>
+                  <option v-for="dev in devUsers" :key="dev.id" :value="dev.id">
+                    {{ dev.firstName }} {{ dev.lastName }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="flex space-x-2">
+              <button type="submit"
+                class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-200">
+                {{ taskForm.id ? 'Aktualizuj zadanie' : 'Dodaj zadanie' }}
+              </button>
+              <button v-if="taskForm.id" type="button" @click="resetTaskForm"
+                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 transition-colors duration-200">
+                Anuluj
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Tasks List -->
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div v-for="task in tasks" :key="task.id"
+            class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ task.name }}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-2">{{ task.description }}</p>
+            <div class="space-y-1 text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <p><strong>Priorytet:</strong> {{ task.priority }}</p>
+              <p><strong>Stan:</strong> {{ task.state }}</p>
+              <p><strong>Szacowany czas:</strong> {{ task.estimatedTime }}h</p>
+              <p>
+                <strong>Przypisana osoba:</strong>
+                {{task.assigneeId ?
+                  (users.find(u => u.id === task.assigneeId)?.firstName + ' ' +
+                    users.find(u => u.id === task.assigneeId)?.lastName) :
+                  'Nie przypisano'
+                }}
+              </p>
+            </div>
+            <div class="flex space-x-2">
+              <button @click="editTask(task)"
+                class="flex-1 bg-yellow-600 text-white px-3 py-2 text-sm rounded-md hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors duration-200">
+                Edytuj
+              </button>
+              <button @click="deleteTask(task.id)"
+                class="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
+                Usuń
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</template>
+
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import type { Project } from './models/Project';
 import { ProjectService } from './services/ProjectService';
-import { AuthService } from './services/AuthService';
 import { ActiveProjectService } from './services/ActiveProjectService';
 import type { Story, StoryPriority, StoryState } from './models/Story';
 import { StoryService } from './services/StoryService';
@@ -10,33 +304,163 @@ import type { User, UserRole } from './models/User';
 import type { Task, TaskPriority, TaskState } from './models/Task';
 import { TaskService } from './services/TaskService';
 import DarkModeToggle from './components/DarkModeToggle.vue';
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { auth } from './firebase'
-import FirebaseLogin from './components/FirebaseLogin.vue'
+import LoginForm from './components/LoginForm.vue';
 
-// Użytkownicy
-const user: User = AuthService.getCurrentUser();
-const users: User[] = AuthService.getAllUsers();
+// System logowania
+const loggedIn = ref(false);
+const currentUser = ref<User | null>(null);
+const authToken = ref<string | null>(localStorage.getItem('token'));
+
+// Mockowi użytkownicy (dla przypisywania zadań)
+const users: User[] = [
+  { id: '1', firstName: 'Jan', lastName: 'Kowalski', role: 'admin' },
+  { id: '2', firstName: 'Anna', lastName: 'Nowak', role: 'developer' },
+  { id: '3', firstName: 'Piotr', lastName: 'Zieliński', role: 'devops' }
+];
+
 const devUsers = computed(() => users.filter(u => u.role === 'developer' || u.role === 'devops'));
 
 // Projekty
 const projects = ref<Project[]>([]);
+const activeProjectId = ref<string | null>(null);
 const form = ref<{ id: string | null; name: string; description: string }>({
   id: null,
   name: '',
   description: ''
 });
 
-// Aktywny projekt
-const activeProjectId = ref<string | null>(null);
-const activeProject = computed(() => projects.value.find(p => p.id === activeProjectId.value) ?? null);
+const activeProject = computed(() =>
+  projects.value.find(p => p.id === activeProjectId.value) ?? null
+);
 
+// Stories
+const stories = ref<Story[]>([]);
+const activeStoryId = ref<string | null>(null);
+const storyForm = ref<{
+  id: string | null;
+  name: string;
+  description: string;
+  priority: StoryPriority;
+  status: StoryState;
+  ownerId: string | null
+}>({
+  id: null,
+  name: '',
+  description: '',
+  priority: 'średni',
+  status: 'todo',
+  ownerId: null
+});
+
+const activeStory = computed(() =>
+  stories.value.find(s => s.id === activeStoryId.value) ?? null
+);
+
+// Tasks
+const tasks = ref<Task[]>([]);
+const taskForm = ref<{
+  id: string | null;
+  name: string;
+  description: string;
+  priority: TaskPriority;
+  state: TaskState;
+  estimatedTime: number;
+  assigneeId: string | null
+}>({
+  id: null,
+  name: '',
+  description: '',
+  priority: 'średni',
+  state: 'todo',
+  estimatedTime: 1,
+  assigneeId: null
+});
+
+// Sprawdzanie tokenu przy starcie
+onMounted(async () => {
+  if (authToken.value) {
+    try {
+      const response = await fetch('http://localhost:3000/api/me', {
+        headers: { Authorization: 'Bearer ' + authToken.value }
+      });
+
+      if (response.ok) {
+        currentUser.value = await response.json();
+        loggedIn.value = true;
+
+        // Załaduj dane aplikacji
+        await loadProjects();
+        await loadActiveProject();
+        if (activeProjectId.value) {
+          await loadStories();
+          if (stories.value.length > 0) {
+            activeStoryId.value = stories.value[0].id;
+            await loadTasks();
+          }
+        }
+      } else {
+        // Token nieprawidłowy
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        authToken.value = null;
+      }
+    } catch (error) {
+      console.error('Błąd sprawdzania tokenu:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      authToken.value = null;
+    }
+  }
+});
+
+// Funkcje logowania
+function onLoginSuccess(userData: User) {
+  currentUser.value = userData;
+  loggedIn.value = true;
+
+  // Załaduj dane aplikacji po zalogowaniu
+  loadProjects().then(() => {
+    loadActiveProject().then(() => {
+      if (activeProjectId.value) {
+        loadStories().then(() => {
+          if (stories.value.length > 0) {
+            activeStoryId.value = stories.value[0].id;
+            loadTasks();
+          }
+        });
+      }
+    });
+  });
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  authToken.value = null;
+  currentUser.value = null;
+  loggedIn.value = false;
+
+  // Wyczyść dane aplikacji
+  projects.value = [];
+  stories.value = [];
+  tasks.value = [];
+  activeProjectId.value = null;
+  activeStoryId.value = null;
+  resetForm();
+  resetStoryForm();
+  resetTaskForm();
+}
+
+// Funkcje projektów
 async function loadProjects() {
   projects.value = await ProjectService.getAll();
 }
 
-function resetForm() {
-  form.value = { id: null, name: '', description: '' };
+async function loadActiveProject() {
+  const savedProjectId = await ActiveProjectService.getActiveProject();
+  if (savedProjectId && projects.value.some(p => p.id === savedProjectId)) {
+    activeProjectId.value = savedProjectId;
+  }
 }
 
 async function onSubmit() {
@@ -57,60 +481,57 @@ async function onSubmit() {
   resetForm();
 }
 
+function resetForm() {
+  form.value = {
+    id: null,
+    name: '',
+    description: ''
+  };
+}
+
 function editProject(project: Project) {
-  form.value = { ...project };
+  form.value = {
+    id: project.id,
+    name: project.name,
+    description: project.description
+  };
 }
 
 async function deleteProject(id: string) {
-  await ProjectService.delete(id);
-  await loadProjects();
-  resetForm();
-  if (activeProjectId.value === id) {
-    activeProjectId.value = null;
-    await ActiveProjectService.setActiveProject('');
+  if (confirm('Czy na pewno chcesz usunąć ten projekt?')) {
+    await ProjectService.delete(id);
+    await loadProjects();
+    if (activeProjectId.value === id) {
+      activeProjectId.value = null;
+      resetStoryView();
+    }
   }
 }
 
-// --- STORY CRUD ---
-const stories = ref<Story[]>([]);
-const storyForm = ref<{
-  id: string | null;
-  name: string;
-  description: string;
-  priority: StoryPriority;
-}>({
-  id: null,
-  name: '',
-  description: '',
-  priority: 'średni',
-});
-const activeStoryId = ref<string | null>(null);
-const activeStory = computed(() => stories.value.find(s => s.id === activeStoryId.value) ?? null);
+async function selectProject(project: Project) {
+  activeProjectId.value = project.id;
+  await ActiveProjectService.setActiveProject(project.id);
+  await loadStories();
+}
 
+// Funkcje stories
 async function loadStories() {
-  if (activeProjectId.value != null) {
+  if (activeProjectId.value) {
     stories.value = await StoryService.getByProject(activeProjectId.value);
-  } else {
-    stories.value = [];
   }
-}
-
-function resetStoryForm() {
-  storyForm.value = { id: null, name: '', description: '', priority: 'średni' };
 }
 
 async function onStorySubmit() {
   if (!activeProjectId.value) return;
+
   if (storyForm.value.id === null) {
     const newStory = {
-      id: Date.now().toString(),
       name: storyForm.value.name,
       description: storyForm.value.description,
       priority: storyForm.value.priority,
-      projectId: activeProjectId.value,
-      createdAt: new Date().toISOString(),
-      state: 'todo',
-      ownerId: user.id.toString()
+      status: storyForm.value.status,
+      ownerId: storyForm.value.ownerId,
+      projectId: activeProjectId.value
     };
     await StoryService.add(newStory as Story);
   } else {
@@ -119,14 +540,24 @@ async function onStorySubmit() {
       name: storyForm.value.name,
       description: storyForm.value.description,
       priority: storyForm.value.priority,
-      projectId: activeProjectId.value,
-      createdAt: stories.value.find(s => s.id === storyForm.value.id)?.createdAt || new Date().toISOString(),
-      state: stories.value.find(s => s.id === storyForm.value.id)?.state || 'todo',
-      ownerId: user.id.toString()
+      status: storyForm.value.status,
+      ownerId: storyForm.value.ownerId,
+      projectId: activeProjectId.value
     });
   }
   await loadStories();
   resetStoryForm();
+}
+
+function resetStoryForm() {
+  storyForm.value = {
+    id: null,
+    name: '',
+    description: '',
+    priority: 'średni',
+    status: 'todo',
+    ownerId: null
+  };
 }
 
 function editStory(story: Story) {
@@ -134,105 +565,80 @@ function editStory(story: Story) {
     id: story.id,
     name: story.name,
     description: story.description,
-    priority: story.priority
+    priority: story.priority,
+    status: story.status,
+    ownerId: story.ownerId
   };
 }
 
 async function deleteStory(id: string) {
-  await StoryService.delete(id);
-  await loadStories();
-  resetStoryForm();
-  if (activeStoryId.value === id) {
-    activeStoryId.value = null;
-    resetTaskView();
+  if (confirm('Czy na pewno chcesz usunąć tę historyjkę?')) {
+    await StoryService.delete(id);
+    await loadStories();
+    if (activeStoryId.value === id) {
+      resetTaskView();
+    }
   }
 }
 
-const storiesTodo = computed(() => stories.value.filter(s => s.state === 'todo'));
-const storiesDoing = computed(() => stories.value.filter(s => s.state === 'doing'));
-const storiesDone = computed(() => stories.value.filter(s => s.state === 'done'));
-
-function changeStoryState(story: Story, newState: StoryState) {
-  StoryService.update({ ...story, state: newState });
-  loadStories();
-  if (activeStoryId.value === story.id) {
-    activeStoryId.value = null;
-    resetTaskView();
-  }
+async function selectStory(story: Story) {
+  activeStoryId.value = story.id;
+  await loadTasks();
 }
 
-// --- TASKS ---
-const tasks = ref<Task[]>([]);
-const taskForm = ref<{
-  id: string | null;
-  name: string;
-  description: string;
-  priority: TaskPriority;
-  estimatedTime: number;
-  assigneeId: string | null;
-}>({
-  id: null,
-  name: '',
-  description: '',
-  priority: 'średni',
-  estimatedTime: 1,
-  assigneeId: null
-});
+function resetStoryView() {
+  stories.value = [];
+  activeStoryId.value = null;
+  resetTaskView();
+}
 
+// Funkcje tasks
 async function loadTasks() {
-  console.log('Ładuję zadania dla storyId:', activeStoryId.value);
-  if (activeStoryId.value != null) {
+  if (activeStoryId.value) {
     tasks.value = await TaskService.getByStory(activeStoryId.value);
-  } else {
-    tasks.value = [];
   }
-}
-
-function resetTaskForm() {
-  taskForm.value = { id: null, name: '', description: '', priority: 'średni', estimatedTime: 1, assigneeId: null };
-}
-
-function resetTaskView() {
-  loadTasks();
-  resetTaskForm();
 }
 
 async function onTaskSubmit() {
   if (!activeStoryId.value) return;
+
   if (taskForm.value.id === null) {
-    const newTask: Task = {
-      id: Date.now().toString(),
+    const newTask = {
       name: taskForm.value.name,
       description: taskForm.value.description,
       priority: taskForm.value.priority,
-      storyId: activeStoryId.value!,
+      state: taskForm.value.state,
       estimatedTime: taskForm.value.estimatedTime,
-      state: taskForm.value.assigneeId ? 'doing' : 'todo',
-      createdAt: new Date().toISOString(),
-      startDate: taskForm.value.assigneeId ? new Date().toISOString() : undefined,
-      endDate: undefined,
-      assigneeId: taskForm.value.assigneeId || undefined
+      assigneeId: taskForm.value.assigneeId,
+      storyId: activeStoryId.value
     };
-    console.log('Dodaję zadanie:', newTask);
-    await TaskService.add(newTask);
+    await TaskService.add(newTask as Task);
   } else {
-    const prev = tasks.value.find(t => t.id === taskForm.value.id);
     await TaskService.update({
       id: taskForm.value.id,
       name: taskForm.value.name,
       description: taskForm.value.description,
       priority: taskForm.value.priority,
-      storyId: activeStoryId.value!,
+      state: taskForm.value.state,
       estimatedTime: taskForm.value.estimatedTime,
-      state: prev?.state || 'todo',
-      createdAt: prev?.createdAt || new Date().toISOString(),
-      startDate: prev?.startDate,
-      endDate: prev?.endDate,
-      assigneeId: taskForm.value.assigneeId || undefined
+      assigneeId: taskForm.value.assigneeId,
+      storyId: activeStoryId.value
     });
   }
   await loadTasks();
   resetTaskForm();
+}
+
+function resetTaskForm() {
+  taskForm.value = {
+    id: null,
+    name: '',
+    description: '',
+    priority: 'średni',
+    state: 'todo',
+    estimatedTime: 1,
+    assigneeId: null
+  };
 }
 
 function editTask(task: Task) {
@@ -241,434 +647,21 @@ function editTask(task: Task) {
     name: task.name,
     description: task.description,
     priority: task.priority,
+    state: task.state,
     estimatedTime: task.estimatedTime,
-    assigneeId: task.assigneeId || null
+    assigneeId: task.assigneeId
   };
 }
 
 async function deleteTask(id: string) {
-  await TaskService.delete(id);
-  await loadTasks();
+  if (confirm('Czy na pewno chcesz usunąć to zadanie?')) {
+    await TaskService.delete(id);
+    await loadTasks();
+  }
+}
+
+function resetTaskView() {
+  tasks.value = [];
   resetTaskForm();
 }
-
-function assignUserToTask(task: Task, userId: string) {
-  TaskService.update({
-    ...task,
-    assigneeId: userId,
-    state: 'doing',
-    startDate: task.startDate || new Date().toISOString()
-  });
-  loadTasks();
-}
-
-function markTaskDone(task: Task) {
-  TaskService.update({
-    ...task,
-    state: 'done',
-    endDate: new Date().toISOString()
-  });
-  loadTasks();
-}
-
-function changeTaskState(task: Task, newState: TaskState) {
-  TaskService.update({ ...task, state: newState });
-  loadTasks();
-}
-
-const tasksTodo = computed(() => tasks.value.filter(t => t.state === 'todo'));
-const tasksDoing = computed(() => tasks.value.filter(t => t.state === 'doing'));
-const tasksDone = computed(() => tasks.value.filter(t => t.state === 'done'));
-
-async function setActiveProject(id: string) {
-  activeProjectId.value = id;
-  await ActiveProjectService.setActiveProject(id);
-  await loadStories();
-  // Ustaw pierwszą historię jako aktywną, jeśli istnieje
-  if (stories.value.length > 0) {
-    activeStoryId.value = stories.value[0].id;
-    await loadTasks();
-  } else {
-    activeStoryId.value = null;
-    tasks.value = [];
-  }
-  resetTaskView();
-}
-
-function onSelectStory(storyId: string) {
-  activeStoryId.value = storyId;
-  loadTasks();
-}
-
-const loggedIn = ref(false)
-onAuthStateChanged(auth, (user) => {
-  loggedIn.value = !!user
-})
-
-async function logout() {
-  try {
-    await signOut(auth)
-  } catch (error) {
-    console.error('Błąd podczas wylogowywania:', error)
-  }
-}
-
-onMounted(async () => {
-  await loadProjects();
-  await loadStories();
-  if (stories.value.length > 0) {
-    activeStoryId.value = stories.value[0].id;
-    await loadTasks();
-  }
-});
 </script>
-
-<template>
-  <FirebaseLogin v-if="!loggedIn" />
-  <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <header class="bg-white dark:bg-gray-800 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">ManageMe</h1>
-        <div class="flex items-center space-x-4">
-          <span class="text-gray-700 dark:text-gray-300">{{ user.firstName }} {{ user.lastName }}</span>
-          <button @click="logout"
-            class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors duration-200">
-            Wyloguj
-          </button>
-          <DarkModeToggle />
-        </div>
-      </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Projects Section -->
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Projekty</h2>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <form @submit.prevent="onSubmit" class="space-y-4">
-            <div>
-              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input type="text" id="name" v-model="form.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-            </div>
-            <div>
-              <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea id="description" v-model="form.description" rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
-            </div>
-            <div class="flex justify-end space-x-3">
-              <button type="button" @click="resetForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                Reset
-              </button>
-              <button type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                {{ form.id === null ? 'Dodaj' : 'Zapisz' }}
-              </button>
-            </div>
-          </form>
-
-          <div class="mt-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div v-for="project in projects" :key="project.id" :class="[
-                'rounded-lg shadow p-4 hover:shadow-md transition-shadow cursor-pointer',
-                project.id === activeProjectId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : 'bg-white dark:bg-gray-700'
-              ]">
-                <div class="flex justify-between items-start">
-                  <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ project.name }}</h3>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ project.description }}</p>
-                  </div>
-                  <div class="flex space-x-2">
-                    <button @click="editProject(project)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      Edytuj
-                    </button>
-                    <button @click="deleteProject(project.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                      Usuń
-                    </button>
-                  </div>
-                </div>
-                <button @click="setActiveProject(project.id)"
-                  class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                  Wybierz
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stories Section -->
-      <div v-if="activeProject" class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Historie użytkownika</h2>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <form @submit.prevent="onStorySubmit" class="space-y-4">
-            <div>
-              <label for="storyName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input type="text" id="storyName" v-model="storyForm.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-            </div>
-            <div>
-              <label for="storyDescription"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea id="storyDescription" v-model="storyForm.description" rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
-            </div>
-            <div>
-              <label for="storyPriority"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
-              <select id="storyPriority" v-model="storyForm.priority"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                <option value="niski">Niski</option>
-                <option value="średni">Średni</option>
-                <option value="wysoki">Wysoki</option>
-              </select>
-            </div>
-            <div class="flex justify-end space-x-3">
-              <button type="button" @click="resetStoryForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                Reset
-              </button>
-              <button type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                {{ storyForm.id === null ? 'Dodaj' : 'Zapisz' }}
-              </button>
-            </div>
-          </form>
-
-          <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <!-- Todo Column -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Do zrobienia</h3>
-              <div class="space-y-4">
-                <div v-for="story in storiesTodo" :key="story.id" :class="[
-                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                ]" @click="onSelectStory(story.id)">
-                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
-                  <div class="mt-4 flex justify-between items-center">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
-                    <div class="flex space-x-2">
-                      <button @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        Edytuj
-                      </button>
-                      <button @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                        Usuń
-                      </button>
-                    </div>
-                  </div>
-                  <button @click.stop="changeStoryState(story, 'doing')"
-                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                    Rozpocznij
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Doing Column -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">W trakcie</h3>
-              <div class="space-y-4">
-                <div v-for="story in storiesDoing" :key="story.id" :class="[
-                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                ]" @click="onSelectStory(story.id)">
-                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
-                  <div class="mt-4 flex justify-between items-center">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
-                    <div class="flex space-x-2">
-                      <button @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        Edytuj
-                      </button>
-                      <button @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                        Usuń
-                      </button>
-                    </div>
-                  </div>
-                  <div class="mt-4 flex space-x-2">
-                    <button @click.stop="changeStoryState(story, 'todo')"
-                      class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                      Wróć
-                    </button>
-                    <button @click.stop="changeStoryState(story, 'done')"
-                      class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                      Zakończ
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Done Column -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Zakończone</h3>
-              <div class="space-y-4">
-                <div v-for="story in storiesDone" :key="story.id" :class="[
-                  'bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer',
-                  story.id === activeStoryId ? 'ring-4 ring-blue-500 bg-blue-100 dark:bg-blue-900' : ''
-                ]" @click="onSelectStory(story.id)">
-                  <h4 class="text-md font-medium text-gray-900 dark:text-white">{{ story.name }}</h4>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ story.description }}</p>
-                  <div class="mt-4 flex justify-between items-center">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">Priorytet: {{ story.priority }}</span>
-                    <div class="flex space-x-2">
-                      <button @click.stop="editStory(story)"
-                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        Edytuj
-                      </button>
-                      <button @click.stop="deleteStory(story.id)"
-                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                        Usuń
-                      </button>
-                    </div>
-                  </div>
-                  <button @click.stop="changeStoryState(story, 'doing')"
-                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                    Wznów
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tasks Section -->
-      <div v-if="activeStory" class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Zadania</h2>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <form @submit.prevent="onTaskSubmit" class="space-y-4">
-            <div>
-              <label for="taskName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nazwa</label>
-              <input type="text" id="taskName" v-model="taskForm.name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-            </div>
-            <div>
-              <label for="taskDescription"
-                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Opis</label>
-              <textarea id="taskDescription" v-model="taskForm.description" rows="3"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
-            </div>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label for="taskPriority"
-                  class="block text-sm font-medium text-gray-700 dark:text-gray-300">Priorytet</label>
-                <select id="taskPriority" v-model="taskForm.priority"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                  <option value="niski">Niski</option>
-                  <option value="średni">Średni</option>
-                  <option value="wysoki">Wysoki</option>
-                </select>
-              </div>
-              <div>
-                <label for="estimatedTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Szacowany
-                  czas (h)</label>
-                <input type="number" id="estimatedTime" v-model="taskForm.estimatedTime" min="1"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-              </div>
-              <div>
-                <label for="assignee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Przypisany
-                  do</label>
-                <select id="assignee" v-model="taskForm.assigneeId"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                  <option :value="null">Nie przypisano</option>
-                  <option v-for="dev in devUsers" :key="dev.id" :value="dev.id">
-                    {{ dev.firstName }} {{ dev.lastName }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div class="flex justify-end space-x-3">
-              <button type="button" @click="resetTaskForm"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                Reset
-              </button>
-              <button type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-                {{ taskForm.id === null ? 'Dodaj' : 'Zapisz' }}
-              </button>
-            </div>
-          </form>
-
-          <div class="mt-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div v-for="task in tasks" :key="task.id" class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                <div class="flex justify-between items-start">
-                  <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ task.name }}</h3>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ task.description }}</p>
-                  </div>
-                  <div class="flex space-x-2">
-                    <button @click="editTask(task)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      Edytuj
-                    </button>
-                    <button @click="deleteTask(task.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                      Usuń
-                    </button>
-                  </div>
-                </div>
-                <div class="mt-4 space-y-2">
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-500 dark:text-gray-400">Priorytet:</span>
-                    <span class="text-gray-900 dark:text-white">{{ task.priority }}</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-500 dark:text-gray-400">Szacowany czas:</span>
-                    <span class="text-gray-900 dark:text-white">{{ task.estimatedTime }}h</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-500 dark:text-gray-400">Przypisany do:</span>
-                    <span class="text-gray-900 dark:text-white">
-                      {{task.assigneeId ? (users.find(u => u.id === task.assigneeId)?.firstName + ' ' + users.find(u =>
-                        u.id === task.assigneeId)?.lastName) : 'Nie przypisano' }}
-                    </span>
-                  </div>
-                </div>
-                <div class="mt-4 flex space-x-2">
-                  <button @click="changeTaskState(task, 'todo')" :class="[
-                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                    task.state === 'todo'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                  ]">
-                    Do zrobienia
-                  </button>
-                  <button @click="changeTaskState(task, 'doing')" :class="[
-                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                    task.state === 'doing'
-                      ? 'bg-yellow-500 text-white border-yellow-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                  ]">
-                    W trakcie
-                  </button>
-                  <button @click="changeTaskState(task, 'done')" :class="[
-                    'flex-1 px-4 py-2 text-sm font-medium rounded-md border',
-                    task.state === 'done'
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
-                  ]">
-                    Zakończone
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</template>
-
-<style>
-@import './assets/main.css';
-</style>

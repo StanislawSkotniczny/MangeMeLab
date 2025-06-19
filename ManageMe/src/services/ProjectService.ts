@@ -22,11 +22,11 @@ export class ProjectService {
 
   static async add(project: Project) {
     const { id, ...data } = project;
-    
+
     Object.keys(data).forEach(key => {
       if ((data as Record<string, any>)[key] === undefined) delete (data as Record<string, any>)[key];
     });
-    console.log('Dodawany projekt do Firestore:', data);
+    console.log('Adding project to Firestore:', data);
     await addDoc(collection(db, this.collectionName), data);
   }
 
