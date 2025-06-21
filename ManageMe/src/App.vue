@@ -1,8 +1,8 @@
 <template>
-  <!-- Formularz logowania jeśli nie zalogowany -->
+  <!-- logowanie -->
   <LoginForm v-if="!loggedIn" @login-success="onLoginSuccess" />
 
-  <!-- Główna aplikacja jeśli zalogowany -->
+  <!-- głowna apka -->
   <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <header class="bg-white dark:bg-gray-800 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -306,12 +306,10 @@ import { TaskService } from './services/TaskService';
 import DarkModeToggle from './components/DarkModeToggle.vue';
 import LoginForm from './components/LoginForm.vue';
 
-// System logowania
 const loggedIn = ref(false);
 const currentUser = ref<User | null>(null);
 const authToken = ref<string | null>(localStorage.getItem('token'));
 
-// Mockowi użytkownicy (dla przypisywania zadań)
 const users: User[] = [
   { id: '1', firstName: 'Jan', lastName: 'Kowalski', role: 'admin' },
   { id: '2', firstName: 'Anna', lastName: 'Nowak', role: 'developer' },
@@ -376,7 +374,6 @@ const taskForm = ref<{
   assigneeId: null
 });
 
-// Sprawdzanie tokenu przy starcie
 onMounted(async () => {
   if (authToken.value) {
     try {
@@ -388,7 +385,6 @@ onMounted(async () => {
         currentUser.value = await response.json();
         loggedIn.value = true;
 
-        // Załaduj dane aplikacji
         await loadProjects();
         await loadActiveProject();
         if (activeProjectId.value) {
@@ -399,7 +395,6 @@ onMounted(async () => {
           }
         }
       } else {
-        // Token nieprawidłowy
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         authToken.value = null;
@@ -413,12 +408,10 @@ onMounted(async () => {
   }
 });
 
-// Funkcje logowania
 function onLoginSuccess(userData: User) {
   currentUser.value = userData;
   loggedIn.value = true;
 
-  // Załaduj dane aplikacji po zalogowaniu
   loadProjects().then(() => {
     loadActiveProject().then(() => {
       if (activeProjectId.value) {
@@ -440,7 +433,6 @@ function logout() {
   currentUser.value = null;
   loggedIn.value = false;
 
-  // Wyczyść dane aplikacji
   projects.value = [];
   stories.value = [];
   tasks.value = [];
@@ -451,7 +443,6 @@ function logout() {
   resetTaskForm();
 }
 
-// Funkcje projektów
 async function loadProjects() {
   projects.value = await ProjectService.getAll();
 }
@@ -514,7 +505,6 @@ async function selectProject(project: Project) {
   await loadStories();
 }
 
-// Funkcje stories
 async function loadStories() {
   if (activeProjectId.value) {
     stories.value = await StoryService.getByProject(activeProjectId.value);
@@ -592,7 +582,6 @@ function resetStoryView() {
   resetTaskView();
 }
 
-// Funkcje tasks
 async function loadTasks() {
   if (activeStoryId.value) {
     tasks.value = await TaskService.getByStory(activeStoryId.value);

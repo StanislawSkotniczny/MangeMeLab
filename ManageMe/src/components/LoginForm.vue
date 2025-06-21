@@ -46,9 +46,9 @@
 import { ref } from 'vue'
 import type { User } from '../models/User'
 
-const emit = defineEmits < {
+const emit = defineEmits<{
   'login-success': [user: User]
-} > ()
+}>()
 
 const loginValue = ref('')
 const password = ref('')
@@ -60,7 +60,6 @@ async function login() {
   isLoading.value = true
 
   try {
-    // Logowanie przez API
     const res = await fetch('http://localhost:3000/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,11 +73,11 @@ async function login() {
 
     const { token, refreshToken } = await res.json()
 
-    // Zapisz tokeny
+
     localStorage.setItem('token', token)
     localStorage.setItem('refreshToken', refreshToken)
 
-    // Pobierz dane użytkownika
+
     const meRes = await fetch('http://localhost:3000/api/me', {
       headers: { Authorization: 'Bearer ' + token }
     })
@@ -87,7 +86,6 @@ async function login() {
 
     const userData = await meRes.json()
 
-    // Emit sukces do App.vue
     emit('login-success', userData)
 
   } catch (e: any) {

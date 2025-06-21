@@ -10,7 +10,6 @@ app.use(bodyParser.json());
 
 const SECRET = 'tajny_klucz';
 
-// Middleware do autoryzacji
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Brak tokenu' });
@@ -24,7 +23,7 @@ function auth(req, res, next) {
   }
 }
 
-// Endpointy
+// endpointy
 app.post('/api/login', (req, res) => authController.login(req, res));
 app.post('/api/refresh', (req, res) => authController.refresh(req, res));
 app.get('/api/me', auth, (req, res) => authController.me(req, res));
